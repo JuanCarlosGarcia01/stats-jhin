@@ -6,9 +6,6 @@ import {
   getDocs,
   deleteDoc,
   doc,
-  query,
-  orderBy,
-  where,
 } from "firebase/firestore";
 import {
   signInWithPopup,
@@ -65,28 +62,28 @@ export default function App() {
   }, []);
 
   async function loadMatches(uid) {
-    setLoading(true);
-    try {
-      const q = query(
-        collection(db, "matches"),
-        where("uid", "==", uid),
-        orderBy("createdAt", "desc")
-      );
+  setLoading(true);
+  try {
+    const snapshot = await getDocs(collection(db, "matches"));
 
-      const snapshot = await getDocs(q);
-
-      const data = snapshot.docs.map((docItem) => ({
+    const data = snapshot.docs
+      .map((docItem) => ({
         id: docItem.id,
         ...docItem.data(),
-      }));
+      }))
+      .filter((item) => item.uid === uid)
+      .sort((a, b) => b.createdAt - a.createdAt);
 
-      setMatches(data);
-    } catch (error) {
-      console.error("Error cargando partidas:", error);
-    } finally {
-      setLoading(false);
-    }
+    console.log("UID actual:", uid);
+    console.log("Partidas encontradas:", data);
+
+    setMatches(data);
+  } catch (error) {
+    console.error("Error cargando partidas:", error);
+  } finally {
+    setLoading(false);
   }
+}
 
   async function handleGoogleLogin() {
     try {
