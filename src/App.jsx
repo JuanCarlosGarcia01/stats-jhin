@@ -127,7 +127,7 @@ export default function App() {
     >
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
         <h1 style={{ fontSize: "48px", marginBottom: "10px" }}>
-          Jhin Winrate Tracker 🎯
+          Jhin Winrate Tracker 🔥 UPDATED
         </h1>
 
         <p style={{ color: "#aaa", marginBottom: "30px" }}>
