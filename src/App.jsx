@@ -49,7 +49,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
 
@@ -67,6 +67,25 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  function buildFakeEmail(usernameValue) {
+    const cleanUsername = usernameValue.trim().toLowerCase();
+    return `${cleanUsername}@jhinstats.app`;
+  }
+
+  function validateUsername(usernameValue) {
+    const cleanUsername = usernameValue.trim().toLowerCase();
+
+    if (cleanUsername.length < 3) {
+      return "El usuario debe tener al menos 3 caracteres.";
+    }
+
+    if (!/^[a-z0-9._-]+$/.test(cleanUsername)) {
+      return "El usuario solo puede tener letras, números, punto, guion o guion bajo.";
+    }
+
+    return "";
+  }
 
   async function loadMatches(uid) {
     setLoading(true);
@@ -93,28 +112,63 @@ export default function App() {
   async function handleRegister() {
     setAuthMessage("");
 
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      setAuthMessage(usernameError);
+      return;
+    }
+
+    if (password.length < 6) {
+      setAuthMessage("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    const fakeEmail = buildFakeEmail(username);
+
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      await createUserWithEmailAndPassword(auth, fakeEmail, password);
       setAuthMessage("Cuenta creada correctamente ✅");
-      setEmail("");
+      setUsername("");
       setPassword("");
     } catch (error) {
       console.error("Error al crear cuenta:", error);
-      setAuthMessage("No se pudo crear la cuenta.");
+
+      if (error.code === "auth/email-already-in-use") {
+        setAuthMessage("Ese nombre de usuario ya está en uso.");
+      } else {
+        setAuthMessage("No se pudo crear la cuenta.");
+      }
     }
   }
 
   async function handleLogin() {
     setAuthMessage("");
 
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      setAuthMessage(usernameError);
+      return;
+    }
+
+    const fakeEmail = buildFakeEmail(username);
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, fakeEmail, password);
       setAuthMessage("Sesión iniciada ✅");
-      setEmail("");
+      setUsername("");
       setPassword("");
     } catch (error) {
       console.error("Error al iniciar sesión:", error);
-      setAuthMessage("Email o contraseña incorrectos.");
+
+      if (
+        error.code === "auth/invalid-credential" ||
+        error.code === "auth/user-not-found" ||
+        error.code === "auth/wrong-password"
+      ) {
+        setAuthMessage("Usuario o contraseña incorrectos.");
+      } else {
+        setAuthMessage("No se pudo iniciar sesión.");
+      }
     }
   }
 
@@ -133,7 +187,7 @@ export default function App() {
     try {
       const newMatch = {
         uid: user.uid,
-        userEmail: user.email || "",
+        userName: user.email.replace("@jhinstats.app", ""),
         skin: selectedSkin,
         result,
         createdAt: Date.now(),
@@ -179,6 +233,7 @@ export default function App() {
     totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0";
 
   const selectedSkinData = skins.find((skin) => skin.en === selectedSkin);
+  const visibleUsername = user ? user.email.replace("@jhinstats.app", "") : "";
 
   return (
     <div
@@ -216,7 +271,7 @@ export default function App() {
                 Sesión iniciada como
                 <br />
                 <span style={{ color: "#aaa", fontSize: "14px" }}>
-                  {user.email}
+                  {visibleUsername}
                 </span>
               </p>
               <button
@@ -248,12 +303,12 @@ export default function App() {
             <h2 style={{ marginTop: 0 }}>Crear cuenta o iniciar sesión</h2>
 
             <div style={{ marginBottom: "12px" }}>
-              <label>Email</label>
+              <label>Nombre de usuario</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Tu email"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Tu usuario"
                 style={{
                   width: "100%",
                   marginTop: "8px",
