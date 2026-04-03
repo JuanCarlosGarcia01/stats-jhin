@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { db, auth, provider } from "./firebase";
+import { db, auth } from "./firebase";
 import {
   collection,
   addDoc,
   getDocs,
   deleteDoc,
   doc,
+  query,
+  where,
 } from "firebase/firestore";
 import {
-  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
@@ -46,6 +49,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -62,40 +69,59 @@ export default function App() {
   }, []);
 
   async function loadMatches(uid) {
-  setLoading(true);
-  try {
-    const snapshot = await getDocs(collection(db, "matches"));
+    setLoading(true);
 
-    const data = snapshot.docs
-      .map((docItem) => ({
-        id: docItem.id,
-        ...docItem.data(),
-      }))
-      .filter((item) => item.uid === uid)
-      .sort((a, b) => b.createdAt - a.createdAt);
-
-    console.log("UID actual:", uid);
-    console.log("Partidas encontradas:", data);
-
-    setMatches(data);
-  } catch (error) {
-    console.error("Error cargando partidas:", error);
-  } finally {
-    setLoading(false);
-  }
-}
-
-  async function handleGoogleLogin() {
     try {
-      await signInWithPopup(auth, provider);
+      const q = query(collection(db, "matches"), where("uid", "==", uid));
+      const snapshot = await getDocs(q);
+
+      const data = snapshot.docs
+        .map((docItem) => ({
+          id: docItem.id,
+          ...docItem.data(),
+        }))
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+      setMatches(data);
     } catch (error) {
-      console.error("Error al iniciar sesión con Google:", error);
+      console.error("Error cargando partidas:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRegister() {
+    setAuthMessage("");
+
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      setAuthMessage("Cuenta creada correctamente ✅");
+      setEmail("");
+      setPassword("");
+    } catch (error) {
+      console.error("Error al crear cuenta:", error);
+      setAuthMessage("No se pudo crear la cuenta.");
+    }
+  }
+
+  async function handleLogin() {
+    setAuthMessage("");
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      setAuthMessage("Sesión iniciada ✅");
+      setEmail("");
+      setPassword("");
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error);
+      setAuthMessage("Email o contraseña incorrectos.");
     }
   }
 
   async function handleLogout() {
     try {
       await signOut(auth);
+      setAuthMessage("Sesión cerrada.");
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
     }
@@ -107,7 +133,6 @@ export default function App() {
     try {
       const newMatch = {
         uid: user.uid,
-        userName: user.displayName || "",
         userEmail: user.email || "",
         skin: selectedSkin,
         result,
@@ -185,23 +210,11 @@ export default function App() {
             </p>
           </div>
 
-          {!user ? (
-            <button
-              onClick={handleGoogleLogin}
-              style={{
-                padding: "12px 20px",
-                borderRadius: "10px",
-                border: "none",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Iniciar sesión con Google
-            </button>
-          ) : (
+          {user && (
             <div style={{ textAlign: "right" }}>
               <p style={{ margin: "0 0 8px 0" }}>
-                {user.displayName} <br />
+                Sesión iniciada como
+                <br />
                 <span style={{ color: "#aaa", fontSize: "14px" }}>
                   {user.email}
                 </span>
@@ -229,13 +242,82 @@ export default function App() {
               padding: "24px",
               borderRadius: "16px",
               marginTop: "20px",
+              maxWidth: "500px",
             }}
           >
-            <h2 style={{ marginTop: 0 }}>Entrá con tu cuenta</h2>
-            <p style={{ color: "#aaa" }}>
-              Iniciá sesión con Google para guardar tus partidas y ver tus stats
-              personales.
-            </p>
+            <h2 style={{ marginTop: 0 }}>Crear cuenta o iniciar sesión</h2>
+
+            <div style={{ marginBottom: "12px" }}>
+              <label>Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Tu email"
+                style={{
+                  width: "100%",
+                  marginTop: "8px",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  border: "1px solid #444",
+                  background: "#222",
+                  color: "white",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label>Contraseña</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Tu contraseña"
+                style={{
+                  width: "100%",
+                  marginTop: "8px",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  border: "1px solid #444",
+                  background: "#222",
+                  color: "white",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button
+                onClick={handleRegister}
+                style={{
+                  padding: "12px 20px",
+                  borderRadius: "10px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Crear cuenta
+              </button>
+
+              <button
+                onClick={handleLogin}
+                style={{
+                  padding: "12px 20px",
+                  borderRadius: "10px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Iniciar sesión
+              </button>
+            </div>
+
+            {authMessage && (
+              <p style={{ marginTop: "14px", color: "#aaa" }}>{authMessage}</p>
+            )}
           </div>
         ) : (
           <>
