@@ -146,20 +146,6 @@ export default function App() {
           Tus partidas se guardan en Firebase.
         </p>
 
-        <button
-          onClick={testFirebase}
-          style={{
-            marginBottom: "25px",
-            padding: "10px 16px",
-            borderRadius: "10px",
-            border: "none",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Probar Firebase
-        </button>
-
         <div
           style={{
             display: "grid",
