@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { db } from "./firebase";
+import { db, auth, provider } from "./firebase";
 import {
   collection,
   addDoc,
@@ -8,7 +8,13 @@ import {
   doc,
   query,
   orderBy,
+  where,
 } from "firebase/firestore";
+import {
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
 
 export default function App() {
   const [skins] = useState([
@@ -41,14 +47,32 @@ export default function App() {
   const [selectedSkin, setSelectedSkin] = useState("Classic");
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    loadMatches();
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+
+      if (currentUser) {
+        await loadMatches(currentUser.uid);
+      } else {
+        setMatches([]);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  async function loadMatches() {
+  async function loadMatches(uid) {
+    setLoading(true);
     try {
-      const q = query(collection(db, "matches"), orderBy("createdAt", "desc"));
+      const q = query(
+        collection(db, "matches"),
+        where("uid", "==", uid),
+        orderBy("createdAt", "desc")
+      );
+
       const snapshot = await getDocs(q);
 
       const data = snapshot.docs.map((docItem) => ({
@@ -64,18 +88,37 @@ export default function App() {
     }
   }
 
+  async function handleGoogleLogin() {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Error al iniciar sesión con Google:", error);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
+  }
+
   async function addMatch(result) {
+    if (!user) return;
+
     try {
       const newMatch = {
+        uid: user.uid,
+        userName: user.displayName || "",
+        userEmail: user.email || "",
         skin: selectedSkin,
         result,
         createdAt: Date.now(),
       };
 
       const docRef = await addDoc(collection(db, "matches"), newMatch);
-
       setMatches((prev) => [{ id: docRef.id, ...newMatch }, ...prev]);
-      console.log("Partida guardada 🔥");
     } catch (error) {
       console.error("Error guardando partida:", error);
     }
@@ -126,328 +169,404 @@ export default function App() {
       }}
     >
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-        <h1 style={{ fontSize: "48px", marginBottom: "10px" }}>
-          🔥Jhin Winrate Tracker🔥 
-        </h1><br /><br />
-
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 320px",
-            gap: "20px",
-            marginBottom: "30px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "16px",
+            flexWrap: "wrap",
+            marginBottom: "20px",
           }}
         >
-          <div
-            style={{
-              background: "#15151d",
-              padding: "20px",
-              borderRadius: "16px",
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>Cargar partida</h2>
-
-            <div style={{ marginBottom: "15px" }}>
-              <label>Skin:</label>
-              <br />
-              <select
-                value={selectedSkin}
-                onChange={(e) => setSelectedSkin(e.target.value)}
-                style={{
-                  marginTop: "8px",
-                  padding: "10px",
-                  width: "100%",
-                  maxWidth: "350px",
-                  borderRadius: "8px",
-                  background: "#222",
-                  color: "white",
-                  border: "1px solid #444",
-                }}
-              >
-                {skins.map((skin) => (
-                  <option key={skin.en} value={skin.en}>
-                    {skin.es} ({skin.en})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <button
-                onClick={() => addMatch("win")}
-                style={{
-                  padding: "12px 20px",
-                  borderRadius: "10px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                Agregar victoria
-              </button>
-
-              <button
-                onClick={() => addMatch("loss")}
-                style={{
-                  padding: "12px 20px",
-                  borderRadius: "10px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                Agregar derrota
-              </button>
-            </div>
-          </div>
-
-          <div
-            style={{
-              background: "#15151d",
-              padding: "16px",
-              borderRadius: "16px",
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>Skin seleccionada</h3>
-
-            {selectedSkinData && (
-              <>
-                <img
-                  src={selectedSkinData.img}
-                  alt={selectedSkinData.en}
-                  style={{
-                    width: "100%",
-                    height: "180px",
-                    objectFit: "cover",
-                    borderRadius: "12px",
-                    marginBottom: "12px",
-                    border: "1px solid #333",
-                  }}
-                  onError={(e) => {
-                    e.target.src =
-                      "https://placehold.co/600x300/111111/FFFFFF?text=Imagen+no+encontrada";
-                  }}
-                />
-
-                <p style={{ margin: 0, fontWeight: "bold" }}>
-                  {selectedSkinData.es} ({selectedSkinData.en})
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: "30px" }}>
-          <h2>Galería de skins</h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "16px",
-            }}
-          >
-            {statsBySkin.map((skin) => (
-              <div
-                key={skin.en}
-                onClick={() => setSelectedSkin(skin.en)}
-                style={{
-                  background: "#15151d",
-                  borderRadius: "16px",
-                  overflow: "hidden",
-                  border:
-                    selectedSkin === skin.en
-                      ? "2px solid #c89b3c"
-                      : "1px solid #2a2a35",
-                  cursor: "pointer",
-                }}
-              >
-                <img
-                  src={skin.img}
-                  alt={skin.en}
-                  style={{
-                    width: "100%",
-                    height: "140px",
-                    objectFit: "cover",
-                    display: "block",
-                  }}
-                  onError={(e) => {
-                    e.target.src =
-                      "https://placehold.co/600x300/111111/FFFFFF?text=Sin+imagen";
-                  }}
-                />
-
-                <div style={{ padding: "12px" }}>
-                  <p style={{ margin: "0 0 4px 0", fontWeight: "bold" }}>
-                    {skin.es}
-                  </p>
-
-                  <p
-                    style={{
-                      margin: "0 0 10px 0",
-                      color: "#aaa",
-                      fontSize: "14px",
-                    }}
-                  >
-                    ({skin.en})
-                  </p>
-
-                  <p style={{ margin: "4px 0", fontSize: "14px" }}>
-                    Partidas: {skin.games}
-                  </p>
-                  <p style={{ margin: "4px 0", fontSize: "14px" }}>
-                    Victorias: {skin.wins}
-                  </p>
-                  <p style={{ margin: "4px 0", fontSize: "14px" }}>
-                    Derrotas: {skin.losses}
-                  </p>
-                  <p style={{ margin: "8px 0 0 0", fontWeight: "bold" }}>
-                    Winrate: {skin.winrate}%
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "15px",
-            marginBottom: "25px",
-          }}
-        >
-          <div
-            style={{
-              background: "#15151d",
-              padding: "20px",
-              borderRadius: "16px",
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>Partidas totales</h3>
-            <p style={{ fontSize: "30px", fontWeight: "bold" }}>{totalGames}</p>
-          </div>
-
-          <div
-            style={{
-              background: "#15151d",
-              padding: "20px",
-              borderRadius: "16px",
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>Victorias</h3>
-            <p style={{ fontSize: "30px", fontWeight: "bold" }}>{totalWins}</p>
-          </div>
-
-          <div
-            style={{
-              background: "#15151d",
-              padding: "20px",
-              borderRadius: "16px",
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>Winrate general</h3>
-            <p style={{ fontSize: "30px", fontWeight: "bold" }}>
-              {totalWinrate}%
+          <div>
+            <h1 style={{ fontSize: "48px", marginBottom: "10px" }}>
+              Jhin Winrate Tracker 🎯
+            </h1>
+            <p style={{ color: "#aaa", margin: 0 }}>
+              Tus partidas se guardan en Firebase.
             </p>
           </div>
+
+          {!user ? (
+            <button
+              onClick={handleGoogleLogin}
+              style={{
+                padding: "12px 20px",
+                borderRadius: "10px",
+                border: "none",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Iniciar sesión con Google
+            </button>
+          ) : (
+            <div style={{ textAlign: "right" }}>
+              <p style={{ margin: "0 0 8px 0" }}>
+                {user.displayName} <br />
+                <span style={{ color: "#aaa", fontSize: "14px" }}>
+                  {user.email}
+                </span>
+              </p>
+              <button
+                onClick={handleLogout}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          )}
         </div>
 
-        <div
-          style={{
-            background: "#15151d",
-            padding: "20px",
-            borderRadius: "16px",
-            marginBottom: "25px",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>Winrate por skin</h2>
-
-          <table
+        {!user ? (
+          <div
             style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              marginTop: "10px",
+              background: "#15151d",
+              padding: "24px",
+              borderRadius: "16px",
+              marginTop: "20px",
             }}
           >
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid #333" }}>
-                <th style={{ padding: "10px" }}>Skin</th>
-                <th style={{ padding: "10px" }}>Partidas</th>
-                <th style={{ padding: "10px" }}>Victorias</th>
-                <th style={{ padding: "10px" }}>Derrotas</th>
-                <th style={{ padding: "10px" }}>Winrate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {statsBySkin.map((row) => (
-                <tr key={row.en} style={{ borderBottom: "1px solid #222" }}>
-                  <td style={{ padding: "10px" }}>
-                    {row.es} ({row.en})
-                  </td>
-                  <td style={{ padding: "10px" }}>{row.games}</td>
-                  <td style={{ padding: "10px" }}>{row.wins}</td>
-                  <td style={{ padding: "10px" }}>{row.losses}</td>
-                  <td style={{ padding: "10px" }}>{row.winrate}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            <h2 style={{ marginTop: 0 }}>Entrá con tu cuenta</h2>
+            <p style={{ color: "#aaa" }}>
+              Iniciá sesión con Google para guardar tus partidas y ver tus stats
+              personales.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 320px",
+                gap: "20px",
+                marginBottom: "30px",
+              }}
+            >
+              <div
+                style={{
+                  background: "#15151d",
+                  padding: "20px",
+                  borderRadius: "16px",
+                }}
+              >
+                <h2 style={{ marginTop: 0 }}>Cargar partida</h2>
 
-        <div
-          style={{
-            background: "#15151d",
-            padding: "20px",
-            borderRadius: "16px",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>Últimas partidas</h2>
+                <div style={{ marginBottom: "15px" }}>
+                  <label>Skin:</label>
+                  <br />
+                  <select
+                    value={selectedSkin}
+                    onChange={(e) => setSelectedSkin(e.target.value)}
+                    style={{
+                      marginTop: "8px",
+                      padding: "10px",
+                      width: "100%",
+                      maxWidth: "350px",
+                      borderRadius: "8px",
+                      background: "#222",
+                      color: "white",
+                      border: "1px solid #444",
+                    }}
+                  >
+                    {skins.map((skin) => (
+                      <option key={skin.en} value={skin.en}>
+                        {skin.es} ({skin.en})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          {loading ? (
-            <p style={{ color: "#aaa" }}>Cargando partidas...</p>
-          ) : matches.length === 0 ? (
-            <p style={{ color: "#aaa" }}>Todavía no cargaste partidas.</p>
-          ) : (
-            matches.map((match) => {
-              const skinData = skins.find((s) => s.en === match.skin);
-
-              return (
-                <div
-                  key={match.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    background: "#20202a",
-                    padding: "12px",
-                    borderRadius: "10px",
-                    marginBottom: "10px",
-                    gap: "10px",
-                  }}
-                >
-                  <span>
-                    {skinData?.es} ({skinData?.en}) -{" "}
-                    {match.result === "win" ? "Victoria" : "Derrota"}
-                  </span>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => addMatch("win")}
+                    style={{
+                      padding: "12px 20px",
+                      borderRadius: "10px",
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Agregar victoria
+                  </button>
 
                   <button
-                    onClick={() => deleteMatch(match.id)}
+                    onClick={() => addMatch("loss")}
                     style={{
-                      padding: "8px 12px",
-                      borderRadius: "8px",
+                      padding: "12px 20px",
+                      borderRadius: "10px",
                       border: "none",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Agregar derrota
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "#15151d",
+                  padding: "16px",
+                  borderRadius: "16px",
+                }}
+              >
+                <h3 style={{ marginTop: 0 }}>Skin seleccionada</h3>
+
+                {selectedSkinData && (
+                  <>
+                    <img
+                      src={selectedSkinData.img}
+                      alt={selectedSkinData.en}
+                      style={{
+                        width: "100%",
+                        height: "180px",
+                        objectFit: "cover",
+                        borderRadius: "12px",
+                        marginBottom: "12px",
+                        border: "1px solid #333",
+                      }}
+                      onError={(e) => {
+                        e.target.src =
+                          "https://placehold.co/600x300/111111/FFFFFF?text=Imagen+no+encontrada";
+                      }}
+                    />
+                    <p style={{ margin: 0, fontWeight: "bold" }}>
+                      {selectedSkinData.es} ({selectedSkinData.en})
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "30px" }}>
+              <h2>Galería de skins</h2>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "16px",
+                }}
+              >
+                {statsBySkin.map((skin) => (
+                  <div
+                    key={skin.en}
+                    onClick={() => setSelectedSkin(skin.en)}
+                    style={{
+                      background: "#15151d",
+                      borderRadius: "16px",
+                      overflow: "hidden",
+                      border:
+                        selectedSkin === skin.en
+                          ? "2px solid #c89b3c"
+                          : "1px solid #2a2a35",
                       cursor: "pointer",
                     }}
                   >
-                    Borrar
-                  </button>
-                </div>
-              );
-            })
-          )}
-        </div>
+                    <img
+                      src={skin.img}
+                      alt={skin.en}
+                      style={{
+                        width: "100%",
+                        height: "140px",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                      onError={(e) => {
+                        e.target.src =
+                          "https://placehold.co/600x300/111111/FFFFFF?text=Sin+imagen";
+                      }}
+                    />
+
+                    <div style={{ padding: "12px" }}>
+                      <p style={{ margin: "0 0 4px 0", fontWeight: "bold" }}>
+                        {skin.es}
+                      </p>
+
+                      <p
+                        style={{
+                          margin: "0 0 10px 0",
+                          color: "#aaa",
+                          fontSize: "14px",
+                        }}
+                      >
+                        ({skin.en})
+                      </p>
+
+                      <p style={{ margin: "4px 0", fontSize: "14px" }}>
+                        Partidas: {skin.games}
+                      </p>
+                      <p style={{ margin: "4px 0", fontSize: "14px" }}>
+                        Victorias: {skin.wins}
+                      </p>
+                      <p style={{ margin: "4px 0", fontSize: "14px" }}>
+                        Derrotas: {skin.losses}
+                      </p>
+                      <p style={{ margin: "8px 0 0 0", fontWeight: "bold" }}>
+                        Winrate: {skin.winrate}%
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "15px",
+                marginBottom: "25px",
+              }}
+            >
+              <div
+                style={{
+                  background: "#15151d",
+                  padding: "20px",
+                  borderRadius: "16px",
+                }}
+              >
+                <h3 style={{ marginTop: 0 }}>Partidas totales</h3>
+                <p style={{ fontSize: "30px", fontWeight: "bold" }}>
+                  {totalGames}
+                </p>
+              </div>
+
+              <div
+                style={{
+                  background: "#15151d",
+                  padding: "20px",
+                  borderRadius: "16px",
+                }}
+              >
+                <h3 style={{ marginTop: 0 }}>Victorias</h3>
+                <p style={{ fontSize: "30px", fontWeight: "bold" }}>
+                  {totalWins}
+                </p>
+              </div>
+
+              <div
+                style={{
+                  background: "#15151d",
+                  padding: "20px",
+                  borderRadius: "16px",
+                }}
+              >
+                <h3 style={{ marginTop: 0 }}>Winrate general</h3>
+                <p style={{ fontSize: "30px", fontWeight: "bold" }}>
+                  {totalWinrate}%
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#15151d",
+                padding: "20px",
+                borderRadius: "16px",
+                marginBottom: "25px",
+              }}
+            >
+              <h2 style={{ marginTop: 0 }}>Winrate por skin</h2>
+
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  marginTop: "10px",
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{ textAlign: "left", borderBottom: "1px solid #333" }}
+                  >
+                    <th style={{ padding: "10px" }}>Skin</th>
+                    <th style={{ padding: "10px" }}>Partidas</th>
+                    <th style={{ padding: "10px" }}>Victorias</th>
+                    <th style={{ padding: "10px" }}>Derrotas</th>
+                    <th style={{ padding: "10px" }}>Winrate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statsBySkin.map((row) => (
+                    <tr key={row.en} style={{ borderBottom: "1px solid #222" }}>
+                      <td style={{ padding: "10px" }}>
+                        {row.es} ({row.en})
+                      </td>
+                      <td style={{ padding: "10px" }}>{row.games}</td>
+                      <td style={{ padding: "10px" }}>{row.wins}</td>
+                      <td style={{ padding: "10px" }}>{row.losses}</td>
+                      <td style={{ padding: "10px" }}>{row.winrate}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              style={{
+                background: "#15151d",
+                padding: "20px",
+                borderRadius: "16px",
+              }}
+            >
+              <h2 style={{ marginTop: 0 }}>Últimas partidas</h2>
+
+              {loading ? (
+                <p style={{ color: "#aaa" }}>Cargando partidas...</p>
+              ) : matches.length === 0 ? (
+                <p style={{ color: "#aaa" }}>Todavía no cargaste partidas.</p>
+              ) : (
+                matches.map((match) => {
+                  const skinData = skins.find((s) => s.en === match.skin);
+
+                  return (
+                    <div
+                      key={match.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        background: "#20202a",
+                        padding: "12px",
+                        borderRadius: "10px",
+                        marginBottom: "10px",
+                        gap: "10px",
+                      }}
+                    >
+                      <span>
+                        {skinData?.es} ({skinData?.en}) -{" "}
+                        {match.result === "win" ? "Victoria" : "Derrota"}
+                      </span>
+
+                      <button
+                        onClick={() => deleteMatch(match.id)}
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: "8px",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Borrar
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
