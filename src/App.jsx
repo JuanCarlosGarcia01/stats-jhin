@@ -64,18 +64,6 @@ export default function App() {
     }
   }
 
-  async function testFirebase() {
-    try {
-      await addDoc(collection(db, "pruebas"), {
-        mensaje: "Funciona Firebase 🔥",
-        fecha: new Date(),
-      });
-      console.log("Guardado en Firebase");
-    } catch (e) {
-      console.error("Error:", e);
-    }
-  }
-
   async function addMatch(result) {
     try {
       const newMatch = {
@@ -142,7 +130,7 @@ export default function App() {
           Jhin Winrate Tracker 🎯
         </h1>
 
-        <p style={{ color: "#aaa", marginBottom: "20px" }}>
+        <p style={{ color: "#aaa", marginBottom: "30px" }}>
           Tus partidas se guardan en Firebase.
         </p>
 
