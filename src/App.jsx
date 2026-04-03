@@ -130,10 +130,6 @@ export default function App() {
           Jhin Winrate Tracker 🔥 UPDATED
         </h1>
 
-        <p style={{ color: "#aaa", marginBottom: "30px" }}>
-          Tus partidas se guardan en Firebase.
-        </p>
-
         <div
           style={{
             display: "grid",
