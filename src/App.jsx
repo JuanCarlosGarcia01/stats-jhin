@@ -128,7 +128,7 @@ export default function App() {
               lowerName.includes("amber") ||
               lowerName.includes("merc") ||
               lowerName.includes("abyssal") ||  
-              lowerName.includes("paragon") ||//A G T (N) (M) (D) (B) (M) (I) ()
+              lowerName.includes("paragon") ||
               lowerName.includes("lustrous") ||
               lowerName.includes("inked") ||
               lowerName.includes("maverick") ||
@@ -138,9 +138,23 @@ export default function App() {
               lowerName.includes("nightwire") ||
               lowerName.includes("tiger") ||
               lowerName.includes("golden") ||
-              lowerName.includes("aquamarine") ||
-              lowerName.includes("jasper");
+              lowerName.includes("aquamarine") || 
+              lowerName.includes("jasper")||
+              lowerName.includes("cursed") ||
+              lowerName.includes("peridot") ||  
+              lowerName.includes("opulent") ||
+              lowerName.includes("formal") ||
+              lowerName.includes("meteorite") ||
+              lowerName.includes("maverick") ||
+              lowerName.includes("chocolate fondue") ||
+              lowerName.includes("blue sundae") ||
+              lowerName.includes("guacamole") ||
+              lowerName.includes("pesto") ||
+              lowerName.includes("black sesame") ||
+              lowerName.includes("forest berry jelly") ||
+              lowerName.includes("noble") ||
 
+              lowerName.includes("dessert dip");
             const duplicatedName =
               array.findIndex(
                 (item) => item.name.toLowerCase() === lowerName
