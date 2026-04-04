@@ -23,6 +23,8 @@ export default function App() {
   const [selectedSkin, setSelectedSkin] = useState("");
 
   const [matches, setMatches] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [championsLoading, setChampionsLoading] = useState(true);
   const [skinsLoading, setSkinsLoading] = useState(false);
@@ -86,15 +88,38 @@ export default function App() {
         const data = await res.json();
         const champData = data.data[selectedChampion];
 
-        const skinsData = champData.skins.map((skin) => ({
-          id: `${champData.id}_${skin.num}`,
-          championId: champData.id,
-          championName: champData.name,
-          name: skin.name === "default" ? "Classic" : skin.name,
-          num: skin.num,
-          img: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champData.id}_${skin.num}.jpg`,
-          tile: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champData.id}_${skin.num}.jpg`,
-        }));
+        const skinsData = champData.skins
+          .map((skin) => ({
+            id: `${champData.id}_${skin.num}`,
+            championId: champData.id,
+            championName: champData.name,
+            name: skin.name === "default" ? "Classic" : skin.name,
+            num: skin.num,
+            img: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champData.id}_${skin.num}.jpg`,
+            tile: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champData.id}_${skin.num}.jpg`,
+          }))
+          .filter((skin, index, array) => {
+            const lowerName = skin.name.toLowerCase();
+
+            const looksLikeChroma =
+              lowerName.includes("chroma") ||
+              lowerName.includes("ruby") ||
+              lowerName.includes("emerald") ||
+              lowerName.includes("obsidian") ||
+              lowerName.includes("pearl") ||
+              lowerName.includes("rose quartz") ||
+              lowerName.includes("sapphire") ||
+              lowerName.includes("catseye") ||
+              lowerName.includes("amethyst") ||
+              lowerName.includes("tanzanite");
+
+            const duplicatedName =
+              array.findIndex(
+                (item) => item.name.toLowerCase() === lowerName
+              ) !== index;
+
+            return !looksLikeChroma && !duplicatedName;
+          });
 
         setSkins(skinsData);
 
@@ -121,8 +146,10 @@ export default function App() {
 
       if (currentUser) {
         await loadMatches(currentUser.uid);
+        await loadFavorites(currentUser.uid);
       } else {
         setMatches([]);
+        setFavorites([]);
         setLoading(false);
       }
     });
@@ -168,6 +195,22 @@ export default function App() {
       console.error("Error cargando partidas:", error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadFavorites(uid) {
+    try {
+      const q = query(collection(db, "favorites"), where("uid", "==", uid));
+      const snapshot = await getDocs(q);
+
+      const data = snapshot.docs.map((docItem) => ({
+        id: docItem.id,
+        ...docItem.data(),
+      }));
+
+      setFavorites(data);
+    } catch (error) {
+      console.error("Error cargando favoritos:", error);
     }
   }
 
@@ -275,8 +318,35 @@ export default function App() {
     }
   }
 
-  const selectedChampionData = champions.find((c) => c.id === selectedChampion);
+  async function toggleFavoriteChampion(champion) {
+    if (!user) return;
 
+    try {
+      const existing = favorites.find((fav) => fav.champion === champion);
+
+      if (existing) {
+        await deleteDoc(doc(db, "favorites", existing.id));
+        setFavorites((prev) => prev.filter((fav) => fav.id !== existing.id));
+      } else {
+        const newFavorite = {
+          uid: user.uid,
+          champion,
+          createdAt: Date.now(),
+        };
+
+        const docRef = await addDoc(collection(db, "favorites"), newFavorite);
+        setFavorites((prev) => [{ id: docRef.id, ...newFavorite }, ...prev]);
+      }
+    } catch (error) {
+      console.error("Error actualizando favorito:", error);
+    }
+  }
+
+  function isFavoriteChampion(championId) {
+    return favorites.some((fav) => fav.champion === championId);
+  }
+
+  const selectedChampionData = champions.find((c) => c.id === selectedChampion);
   const selectedSkinData = skins.find((s) => s.name === selectedSkin);
 
   const championMatches = useMemo(() => {
@@ -512,6 +582,23 @@ export default function App() {
                       </option>
                     ))}
                   </select>
+
+                  <button
+                    onClick={() => toggleFavoriteChampion(selectedChampion)}
+                    style={{
+                      marginTop: "10px",
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                    disabled={!selectedChampion}
+                  >
+                    {isFavoriteChampion(selectedChampion)
+                      ? "Quitar de favoritos"
+                      : "Agregar a favoritos"}
+                  </button>
                 </div>
 
                 <div style={{ marginBottom: "15px" }}>
@@ -605,6 +692,51 @@ export default function App() {
                   <p style={{ color: "#aaa" }}>Cargando skin...</p>
                 )}
               </div>
+            </div>
+
+            <div
+              style={{
+                background: "#15151d",
+                padding: "20px",
+                borderRadius: "16px",
+                marginBottom: "25px",
+              }}
+            >
+              <h2 style={{ marginTop: 0 }}>Campeones favoritos</h2>
+
+              {favorites.length === 0 ? (
+                <p style={{ color: "#aaa" }}>Todavía no agregaste favoritos.</p>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: "12px",
+                  }}
+                >
+                  {favorites.map((fav) => {
+                    const champ = champions.find((c) => c.id === fav.champion);
+                    if (!champ) return null;
+
+                    return (
+                      <div
+                        key={fav.id}
+                        onClick={() => setSelectedChampion(champ.id)}
+                        style={{
+                          background: "#20202a",
+                          padding: "14px",
+                          borderRadius: "12px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <p style={{ margin: 0, fontWeight: "bold" }}>
+                          {champ.name}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div style={{ marginBottom: "30px" }}>
