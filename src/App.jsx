@@ -175,6 +175,10 @@ export default function App() {
               lowerName.includes("winsome") ||
               lowerName.includes("antimatter") ||
               lowerName.includes("vitality") ||
+              lowerName.includes("resolute") ||
+              lowerName.includes("nomad")||
+              lowerName.includes("emberwoken")||
+              lowerName.includes("profane")||
               lowerName.includes("dessert dip"); //Esto es para agregar chormas lowerName.includes("") ||
             const duplicatedName =
               array.findIndex(
