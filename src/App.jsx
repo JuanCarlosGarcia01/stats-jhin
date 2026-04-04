@@ -111,7 +111,21 @@ export default function App() {
               lowerName.includes("sapphire") ||
               lowerName.includes("catseye") ||
               lowerName.includes("amethyst") ||
-              lowerName.includes("tanzanite");
+              lowerName.includes("tanzanite") ||
+              lowerName.includes("turquoise") ||// () () () ()  ()  ()  ()
+              lowerName.includes("elite") || 
+              lowerName.includes("rainbow") ||
+              lowerName.includes("limitless") ||
+              lowerName.includes("neon flare") ||
+              lowerName.includes("citrine") ||
+              lowerName.includes("reckoning") ||
+              lowerName.includes("granite") ||
+              lowerName.includes("K.O.") ||
+              lowerName.includes("BADDEST") ||
+              lowerName.includes("Emberclaw") ||
+              lowerName.includes("Quasar") ||
+              lowerName.includes("Tenfold Triumph") ||
+              lowerName.includes("Jasper");
 
             const duplicatedName =
               array.findIndex(
