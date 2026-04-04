@@ -156,7 +156,26 @@ export default function App() {
               lowerName.includes("sandstone") ||
               lowerName.includes("neon noir") ||
               lowerName.includes("scorch") ||
-              lowerName.includes("dessert dip");
+              lowerName.includes("haunt") ||
+              lowerName.includes("heavenly crane") ||
+              lowerName.includes("dark ritual") ||
+              lowerName.includes("lifebringer") ||
+              lowerName.includes("wicked") || //
+              lowerName.includes("vivid") ||
+              lowerName.includes("speckled") ||
+              lowerName.includes("bronze") ||
+              lowerName.includes("silver") ||
+              lowerName.includes("gold") ||
+              lowerName.includes("platinum") ||
+              lowerName.includes("esmerald") ||
+              lowerName.includes("diamond") ||
+              lowerName.includes("master") ||
+              lowerName.includes("grandmaster") || 
+              lowerName.includes("challenger") ||
+              lowerName.includes("winsome") ||
+              lowerName.includes("antimatter") ||
+              lowerName.includes("vitality") ||
+              lowerName.includes("dessert dip"); //Esto es para agregar chormas lowerName.includes("") ||
             const duplicatedName =
               array.findIndex(
                 (item) => item.name.toLowerCase() === lowerName
