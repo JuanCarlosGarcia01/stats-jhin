@@ -152,8 +152,10 @@ export default function App() {
               lowerName.includes("pesto") ||
               lowerName.includes("black sesame") ||
               lowerName.includes("forest berry jelly") ||
-              lowerName.includes("noble") ||
-
+              lowerName.includes("gilded") ||
+              lowerName.includes("sandstone") ||
+              lowerName.includes("neon noir") ||
+              lowerName.includes("scorch") ||
               lowerName.includes("dessert dip");
             const duplicatedName =
               array.findIndex(
