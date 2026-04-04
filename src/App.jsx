@@ -112,7 +112,7 @@ export default function App() {
               lowerName.includes("catseye") ||
               lowerName.includes("amethyst") ||
               lowerName.includes("tanzanite") ||
-              lowerName.includes("turquoise") ||// () () () ()  ()  ()  ()
+              lowerName.includes("turquoise") ||
               lowerName.includes("elite") || 
               lowerName.includes("rainbow") ||
               lowerName.includes("limitless") ||
@@ -120,12 +120,26 @@ export default function App() {
               lowerName.includes("citrine") ||
               lowerName.includes("reckoning") ||
               lowerName.includes("granite") ||
-              lowerName.includes("K.O.") ||
-              lowerName.includes("BADDEST") ||
-              lowerName.includes("Emberclaw") ||
-              lowerName.includes("Quasar") ||
-              lowerName.includes("Tenfold Triumph") ||
-              lowerName.includes("Jasper");
+              lowerName.includes("k.O.") ||
+              lowerName.includes("bADDEST") ||
+              lowerName.includes("emberclaw") ||
+              lowerName.includes("quasar") ||
+              lowerName.includes("tenfold Triumph") ||
+              lowerName.includes("amber") ||
+              lowerName.includes("merc") ||
+              lowerName.includes("abyssal") ||  
+              lowerName.includes("paragon") ||//A G T (N) (M) (D) (B) (M) (I) ()
+              lowerName.includes("lustrous") ||
+              lowerName.includes("inked") ||
+              lowerName.includes("maverick") ||
+              lowerName.includes("brilliant") ||
+              lowerName.includes("doom") ||
+              lowerName.includes("mythic") ||
+              lowerName.includes("nightwire") ||
+              lowerName.includes("tiger") ||
+              lowerName.includes("golden") ||
+              lowerName.includes("aquamarine") ||
+              lowerName.includes("jasper");
 
             const duplicatedName =
               array.findIndex(
