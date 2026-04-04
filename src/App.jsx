@@ -120,11 +120,11 @@ export default function App() {
               lowerName.includes("citrine") ||
               lowerName.includes("reckoning") ||
               lowerName.includes("granite") ||
-              lowerName.includes("k.O.") ||
-              lowerName.includes("bADDEST") ||
+              lowerName.includes("k.o.") ||
+              lowerName.includes("baddest") ||
               lowerName.includes("emberclaw") ||
               lowerName.includes("quasar") ||
-              lowerName.includes("tenfold Triumph") ||
+              lowerName.includes("tenfold triumph") ||
               lowerName.includes("amber") ||
               lowerName.includes("merc") ||
               lowerName.includes("abyssal") ||  
