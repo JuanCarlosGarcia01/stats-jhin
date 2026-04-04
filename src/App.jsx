@@ -17,41 +17,103 @@ import {
 } from "firebase/auth";
 
 export default function App() {
-  const [skins] = useState([
-    { es: "Clásica", en: "Classic", img: "/skins/classic.jpg" },
-    { es: "Forajido", en: "High Noon", img: "/skins/high-noon.jpg" },
-    { es: "PROYECTO", en: "PROJECT", img: "/skins/project.jpg" },
-    { es: "Luna de Sangre", en: "Blood Moon", img: "/skins/blood-moon.jpg" },
-    { es: "SKT T1", en: "SKT T1", img: "/skins/skt-t1.jpg" },
-    { es: "Cósmico Oscuro", en: "Dark Cosmic", img: "/skins/dark-cosmic.jpg" },
-    {
-      es: "Oscuridad Cósmica Devastadora",
-      en: "Dark Cosmic Erasure",
-      img: "/skins/dark-cosmic-erasure.jpg",
-    },
-    {
-      es: "Pergaminos Shan Hai",
-      en: "Shan Hai Scrolls",
-      img: "/skins/shan-hai-scrolls.jpg",
-    },
-    { es: "Empíreo", en: "Empyrean", img: "/skins/empyrean.jpg" },
-    {
-      es: "Luchador Espiritual",
-      en: "Soul Fighter",
-      img: "/skins/soul-fighter.jpg",
-    },
-    { es: "Arcana", en: "Arcana", img: "/skins/arcana.jpg" },
-    { es: "Creador de Mitos", en: "Mythmaker", img: "/skins/mythmaker.jpg" },
-  ]);
+  const [champions, setChampions] = useState([]);
+  const [selectedChampion, setSelectedChampion] = useState("");
+  const [skins, setSkins] = useState([]);
+  const [selectedSkin, setSelectedSkin] = useState("");
 
-  const [selectedSkin, setSelectedSkin] = useState("Classic");
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [championsLoading, setChampionsLoading] = useState(true);
+  const [skinsLoading, setSkinsLoading] = useState(false);
+
   const [user, setUser] = useState(null);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
+
+  const [ddragonVersion, setDdragonVersion] = useState("");
+
+  useEffect(() => {
+    async function fetchVersionAndChampions() {
+      try {
+        setChampionsLoading(true);
+
+        const versionsRes = await fetch(
+          "https://ddragon.leagueoflegends.com/api/versions.json"
+        );
+        const versionsData = await versionsRes.json();
+        const latestVersion = versionsData[0];
+
+        setDdragonVersion(latestVersion);
+
+        const champsRes = await fetch(
+          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`
+        );
+        const champsData = await champsRes.json();
+
+        const champs = Object.values(champsData.data).sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+
+        setChampions(champs);
+
+        if (champs.length > 0) {
+          setSelectedChampion(champs[0].id);
+        }
+      } catch (error) {
+        console.error("Error cargando campeones:", error);
+      } finally {
+        setChampionsLoading(false);
+      }
+    }
+
+    fetchVersionAndChampions();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedChampion || !ddragonVersion) return;
+
+    async function fetchChampionDetails() {
+      try {
+        setSkinsLoading(true);
+
+        const res = await fetch(
+          `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/champion/${selectedChampion}.json`
+        );
+
+        const data = await res.json();
+        const champData = data.data[selectedChampion];
+
+        const skinsData = champData.skins.map((skin) => ({
+          id: `${champData.id}_${skin.num}`,
+          championId: champData.id,
+          championName: champData.name,
+          name: skin.name === "default" ? "Classic" : skin.name,
+          num: skin.num,
+          img: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champData.id}_${skin.num}.jpg`,
+          tile: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champData.id}_${skin.num}.jpg`,
+        }));
+
+        setSkins(skinsData);
+
+        if (skinsData.length > 0) {
+          setSelectedSkin(skinsData[0].name);
+        } else {
+          setSelectedSkin("");
+        }
+      } catch (error) {
+        console.error("Error cargando skins:", error);
+        setSkins([]);
+        setSelectedSkin("");
+      } finally {
+        setSkinsLoading(false);
+      }
+    }
+
+    fetchChampionDetails();
+  }, [selectedChampion, ddragonVersion]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -182,12 +244,16 @@ export default function App() {
   }
 
   async function addMatch(result) {
-    if (!user) return;
+    if (!user || !selectedChampion || !selectedSkin) return;
+
+    const championData = champions.find((c) => c.id === selectedChampion);
 
     try {
       const newMatch = {
         uid: user.uid,
         userName: user.email.replace("@jhinstats.app", ""),
+        champion: selectedChampion,
+        championName: championData?.name || selectedChampion,
         skin: selectedSkin,
         result,
         createdAt: Date.now(),
@@ -209,9 +275,17 @@ export default function App() {
     }
   }
 
+  const selectedChampionData = champions.find((c) => c.id === selectedChampion);
+
+  const selectedSkinData = skins.find((s) => s.name === selectedSkin);
+
+  const championMatches = useMemo(() => {
+    return matches.filter((m) => m.champion === selectedChampion);
+  }, [matches, selectedChampion]);
+
   const statsBySkin = useMemo(() => {
     return skins.map((skin) => {
-      const skinMatches = matches.filter((m) => m.skin === skin.en);
+      const skinMatches = championMatches.filter((m) => m.skin === skin.name);
       const games = skinMatches.length;
       const wins = skinMatches.filter((m) => m.result === "win").length;
       const losses = games - wins;
@@ -225,14 +299,35 @@ export default function App() {
         winrate,
       };
     });
-  }, [matches, skins]);
+  }, [skins, championMatches]);
+
+  const championStats = useMemo(() => {
+    return champions
+      .map((champ) => {
+        const champMatches = matches.filter((m) => m.champion === champ.id);
+        const games = champMatches.length;
+        const wins = champMatches.filter((m) => m.result === "win").length;
+        const losses = games - wins;
+        const winrate = games > 0 ? ((wins / games) * 100).toFixed(1) : "0.0";
+
+        return {
+          id: champ.id,
+          name: champ.name,
+          games,
+          wins,
+          losses,
+          winrate,
+        };
+      })
+      .filter((c) => c.games > 0)
+      .sort((a, b) => b.games - a.games);
+  }, [champions, matches]);
 
   const totalGames = matches.length;
   const totalWins = matches.filter((m) => m.result === "win").length;
   const totalWinrate =
     totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0";
 
-  const selectedSkinData = skins.find((skin) => skin.en === selectedSkin);
   const visibleUsername = user ? user.email.replace("@jhinstats.app", "") : "";
 
   return (
@@ -245,7 +340,7 @@ export default function App() {
         padding: "30px",
       }}
     >
-      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+      <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
         <div
           style={{
             display: "flex",
@@ -258,10 +353,10 @@ export default function App() {
         >
           <div>
             <h1 style={{ fontSize: "48px", marginBottom: "10px" }}>
-              Jhin Winrate Tracker 🎯
+              LoL Winrate Tracker 🎯
             </h1>
             <p style={{ color: "#aaa", margin: 0 }}>
-              Tus partidas se guardan en Firebase.
+              Guardá tus partidas por campeón y skin.
             </p>
           </div>
 
@@ -379,7 +474,7 @@ export default function App() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 320px",
+                gridTemplateColumns: "1fr 360px",
                 gap: "20px",
                 marginBottom: "30px",
               }}
@@ -392,6 +487,32 @@ export default function App() {
                 }}
               >
                 <h2 style={{ marginTop: 0 }}>Cargar partida</h2>
+
+                <div style={{ marginBottom: "15px" }}>
+                  <label>Campeón:</label>
+                  <br />
+                  <select
+                    value={selectedChampion}
+                    onChange={(e) => setSelectedChampion(e.target.value)}
+                    style={{
+                      marginTop: "8px",
+                      padding: "10px",
+                      width: "100%",
+                      maxWidth: "350px",
+                      borderRadius: "8px",
+                      background: "#222",
+                      color: "white",
+                      border: "1px solid #444",
+                    }}
+                    disabled={championsLoading}
+                  >
+                    {champions.map((champ) => (
+                      <option key={champ.id} value={champ.id}>
+                        {champ.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 <div style={{ marginBottom: "15px" }}>
                   <label>Skin:</label>
@@ -409,10 +530,11 @@ export default function App() {
                       color: "white",
                       border: "1px solid #444",
                     }}
+                    disabled={skinsLoading || skins.length === 0}
                   >
                     {skins.map((skin) => (
-                      <option key={skin.en} value={skin.en}>
-                        {skin.es} ({skin.en})
+                      <option key={skin.id} value={skin.name}>
+                        {skin.name}
                       </option>
                     ))}
                   </select>
@@ -428,6 +550,7 @@ export default function App() {
                       cursor: "pointer",
                       fontWeight: "bold",
                     }}
+                    disabled={!selectedChampion || !selectedSkin}
                   >
                     Agregar victoria
                   </button>
@@ -441,6 +564,7 @@ export default function App() {
                       cursor: "pointer",
                       fontWeight: "bold",
                     }}
+                    disabled={!selectedChampion || !selectedSkin}
                   >
                     Agregar derrota
                   </button>
@@ -454,36 +578,39 @@ export default function App() {
                   borderRadius: "16px",
                 }}
               >
-                <h3 style={{ marginTop: 0 }}>Skin seleccionada</h3>
+                <h3 style={{ marginTop: 0 }}>
+                  {selectedChampionData?.name || "Campeón"} -{" "}
+                  {selectedSkinData?.name || "Skin"}
+                </h3>
 
-                {selectedSkinData && (
+                {selectedSkinData ? (
                   <>
                     <img
                       src={selectedSkinData.img}
-                      alt={selectedSkinData.en}
+                      alt={selectedSkinData.name}
                       style={{
                         width: "100%",
-                        height: "180px",
+                        height: "210px",
                         objectFit: "cover",
                         borderRadius: "12px",
                         marginBottom: "12px",
                         border: "1px solid #333",
                       }}
-                      onError={(e) => {
-                        e.target.src =
-                          "https://placehold.co/600x300/111111/FFFFFF?text=Imagen+no+encontrada";
-                      }}
                     />
                     <p style={{ margin: 0, fontWeight: "bold" }}>
-                      {selectedSkinData.es} ({selectedSkinData.en})
+                      {selectedChampionData?.name} - {selectedSkinData.name}
                     </p>
                   </>
+                ) : (
+                  <p style={{ color: "#aaa" }}>Cargando skin...</p>
                 )}
               </div>
             </div>
 
             <div style={{ marginBottom: "30px" }}>
-              <h2>Galería de skins</h2>
+              <h2>
+                Galería de skins de {selectedChampionData?.name || "campeón"}
+              </h2>
 
               <div
                 style={{
@@ -494,14 +621,14 @@ export default function App() {
               >
                 {statsBySkin.map((skin) => (
                   <div
-                    key={skin.en}
-                    onClick={() => setSelectedSkin(skin.en)}
+                    key={skin.id}
+                    onClick={() => setSelectedSkin(skin.name)}
                     style={{
                       background: "#15151d",
                       borderRadius: "16px",
                       overflow: "hidden",
                       border:
-                        selectedSkin === skin.en
+                        selectedSkin === skin.name
                           ? "2px solid #c89b3c"
                           : "1px solid #2a2a35",
                       cursor: "pointer",
@@ -509,32 +636,18 @@ export default function App() {
                   >
                     <img
                       src={skin.img}
-                      alt={skin.en}
+                      alt={skin.name}
                       style={{
                         width: "100%",
                         height: "140px",
                         objectFit: "cover",
                         display: "block",
                       }}
-                      onError={(e) => {
-                        e.target.src =
-                          "https://placehold.co/600x300/111111/FFFFFF?text=Sin+imagen";
-                      }}
                     />
 
                     <div style={{ padding: "12px" }}>
-                      <p style={{ margin: "0 0 4px 0", fontWeight: "bold" }}>
-                        {skin.es}
-                      </p>
-
-                      <p
-                        style={{
-                          margin: "0 0 10px 0",
-                          color: "#aaa",
-                          fontSize: "14px",
-                        }}
-                      >
-                        ({skin.en})
+                      <p style={{ margin: "0 0 8px 0", fontWeight: "bold" }}>
+                        {skin.name}
                       </p>
 
                       <p style={{ margin: "4px 0", fontSize: "14px" }}>
@@ -611,7 +724,59 @@ export default function App() {
                 marginBottom: "25px",
               }}
             >
-              <h2 style={{ marginTop: 0 }}>Winrate por skin</h2>
+              <h2 style={{ marginTop: 0 }}>Winrate por campeón</h2>
+
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  marginTop: "10px",
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{ textAlign: "left", borderBottom: "1px solid #333" }}
+                  >
+                    <th style={{ padding: "10px" }}>Campeón</th>
+                    <th style={{ padding: "10px" }}>Partidas</th>
+                    <th style={{ padding: "10px" }}>Victorias</th>
+                    <th style={{ padding: "10px" }}>Derrotas</th>
+                    <th style={{ padding: "10px" }}>Winrate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {championStats.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" style={{ padding: "10px", color: "#aaa" }}>
+                        Todavía no cargaste partidas.
+                      </td>
+                    </tr>
+                  ) : (
+                    championStats.map((row) => (
+                      <tr key={row.id} style={{ borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: "10px" }}>{row.name}</td>
+                        <td style={{ padding: "10px" }}>{row.games}</td>
+                        <td style={{ padding: "10px" }}>{row.wins}</td>
+                        <td style={{ padding: "10px" }}>{row.losses}</td>
+                        <td style={{ padding: "10px" }}>{row.winrate}%</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              style={{
+                background: "#15151d",
+                padding: "20px",
+                borderRadius: "16px",
+                marginBottom: "25px",
+              }}
+            >
+              <h2 style={{ marginTop: 0 }}>
+                Winrate por skin de {selectedChampionData?.name || "campeón"}
+              </h2>
 
               <table
                 style={{
@@ -633,10 +798,8 @@ export default function App() {
                 </thead>
                 <tbody>
                   {statsBySkin.map((row) => (
-                    <tr key={row.en} style={{ borderBottom: "1px solid #222" }}>
-                      <td style={{ padding: "10px" }}>
-                        {row.es} ({row.en})
-                      </td>
+                    <tr key={row.id} style={{ borderBottom: "1px solid #222" }}>
+                      <td style={{ padding: "10px" }}>{row.name}</td>
                       <td style={{ padding: "10px" }}>{row.games}</td>
                       <td style={{ padding: "10px" }}>{row.wins}</td>
                       <td style={{ padding: "10px" }}>{row.losses}</td>
@@ -661,42 +824,38 @@ export default function App() {
               ) : matches.length === 0 ? (
                 <p style={{ color: "#aaa" }}>Todavía no cargaste partidas.</p>
               ) : (
-                matches.map((match) => {
-                  const skinData = skins.find((s) => s.en === match.skin);
+                matches.map((match) => (
+                  <div
+                    key={match.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      background: "#20202a",
+                      padding: "12px",
+                      borderRadius: "10px",
+                      marginBottom: "10px",
+                      gap: "10px",
+                    }}
+                  >
+                    <span>
+                      {match.championName} - {match.skin} -{" "}
+                      {match.result === "win" ? "Victoria" : "Derrota"}
+                    </span>
 
-                  return (
-                    <div
-                      key={match.id}
+                    <button
+                      onClick={() => deleteMatch(match.id)}
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        background: "#20202a",
-                        padding: "12px",
-                        borderRadius: "10px",
-                        marginBottom: "10px",
-                        gap: "10px",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        border: "none",
+                        cursor: "pointer",
                       }}
                     >
-                      <span>
-                        {skinData?.es} ({skinData?.en}) -{" "}
-                        {match.result === "win" ? "Victoria" : "Derrota"}
-                      </span>
-
-                      <button
-                        onClick={() => deleteMatch(match.id)}
-                        style={{
-                          padding: "8px 12px",
-                          borderRadius: "8px",
-                          border: "none",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Borrar
-                      </button>
-                    </div>
-                  );
-                })
+                      Borrar
+                    </button>
+                  </div>
+                ))
               )}
             </div>
           </>
