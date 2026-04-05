@@ -78,131 +78,75 @@ export default function App() {
     if (!selectedChampion || !ddragonVersion) return;
 
     async function fetchChampionDetails() {
-      try {
-        setSkinsLoading(true);
+  try {
+    setSkinsLoading(true);
 
-        const res = await fetch(
-          `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/champion/${selectedChampion}.json`
-        );
+    const res = await fetch(
+      `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/champion/${selectedChampion}.json`
+    );
 
-        const data = await res.json();
-        const champData = data.data[selectedChampion];
+    const data = await res.json();
+    const champData = data.data[selectedChampion];
 
-        const skinsData = champData.skins
-          .map((skin) => ({
-            id: `${champData.id}_${skin.num}`,
-            championId: champData.id,
-            championName: champData.name,
-            name: skin.name === "default" ? "Classic" : skin.name,
-            num: skin.num,
-            img: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champData.id}_${skin.num}.jpg`,
-            tile: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champData.id}_${skin.num}.jpg`,
-          }))
-          .filter((skin, index, array) => {
-            const lowerName = skin.name.toLowerCase();
+    const skinsData = champData.skins
+      .map((skin) => {
+        // nombre original
+        const rawName = skin.name === "default" ? "Classic" : skin.name;
 
-            const looksLikeChroma =
-              lowerName.includes("chroma") ||
-              lowerName.includes("ruby") ||
-              lowerName.includes("emerald") ||
-              lowerName.includes("obsidian") ||
-              lowerName.includes("pearl") ||
-              lowerName.includes("rose quartz") ||
-              lowerName.includes("sapphire") ||
-              lowerName.includes("catseye") ||
-              lowerName.includes("amethyst") ||
-              lowerName.includes("tanzanite") ||
-              lowerName.includes("turquoise") ||
-              lowerName.includes("elite") || 
-              lowerName.includes("rainbow") ||
-              lowerName.includes("limitless") ||
-              lowerName.includes("neon flare") ||
-              lowerName.includes("citrine") ||
-              lowerName.includes("reckoning") ||
-              lowerName.includes("granite") ||
-              lowerName.includes("k.o.") ||
-              lowerName.includes("baddest") ||
-              lowerName.includes("emberclaw") ||
-              lowerName.includes("quasar") ||
-              lowerName.includes("tenfold triumph") ||
-              lowerName.includes("amber") ||
-              lowerName.includes("merc") ||
-              lowerName.includes("abyssal") ||  
-              lowerName.includes("paragon") ||
-              lowerName.includes("lustrous") ||
-              lowerName.includes("inked") ||
-              lowerName.includes("maverick") ||
-              lowerName.includes("brilliant") ||
-              lowerName.includes("doom") ||
-              lowerName.includes("mythic") ||
-              lowerName.includes("nightwire") ||
-              lowerName.includes("tiger") ||
-              lowerName.includes("golden") ||
-              lowerName.includes("aquamarine") || 
-              lowerName.includes("jasper")||
-              lowerName.includes("cursed") ||
-              lowerName.includes("peridot") ||  
-              lowerName.includes("opulent") ||
-              lowerName.includes("formal") ||
-              lowerName.includes("meteorite") ||
-              lowerName.includes("maverick") ||
-              lowerName.includes("chocolate fondue") ||
-              lowerName.includes("blue sundae") ||
-              lowerName.includes("guacamole") ||
-              lowerName.includes("pesto") ||
-              lowerName.includes("black sesame") ||
-              lowerName.includes("forest berry jelly") ||
-              lowerName.includes("gilded") ||
-              lowerName.includes("sandstone") ||
-              lowerName.includes("neon noir") ||
-              lowerName.includes("scorch") ||
-              lowerName.includes("haunt") ||
-              lowerName.includes("heavenly crane") ||
-              lowerName.includes("dark ritual") ||
-              lowerName.includes("lifebringer") ||
-              lowerName.includes("wicked") || //
-              lowerName.includes("vivid") ||
-              lowerName.includes("speckled") ||
-              lowerName.includes("bronze") ||
-              lowerName.includes("silver") ||
-              lowerName.includes("gold") ||
-              lowerName.includes("platinum") ||
-              lowerName.includes("esmerald") ||
-              lowerName.includes("diamond") ||
-              lowerName.includes("master") ||
-              lowerName.includes("grandmaster") || 
-              lowerName.includes("challenger") ||
-              lowerName.includes("winsome") ||
-              lowerName.includes("antimatter") ||
-              lowerName.includes("vitality") ||
-              lowerName.includes("resolute") ||
-              lowerName.includes("nomad")||
-              lowerName.includes("emberwoken")||
-              lowerName.includes("profane")||
-              lowerName.includes("dessert dip"); //Esto es para agregar chormas lowerName.includes("") ||
-            const duplicatedName =
-              array.findIndex(
-                (item) => item.name.toLowerCase() === lowerName
-              ) !== index;
+        // 🔥 elimina variantes tipo (G2), (Fnatic), etc
+        const cleanName = rawName.replace(/\(.*?\)/g, "").trim();
 
-            return !looksLikeChroma && !duplicatedName;
-          });
+        return {
+          id: `${champData.id}_${skin.num}`,
+          championId: champData.id,
+          championName: champData.name,
+          name: cleanName,
+          originalName: rawName,
+          num: skin.num,
+          img: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champData.id}_${skin.num}.jpg`,
+          tile: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champData.id}_${skin.num}.jpg`,
+        };
+      })
+      .filter((skin, index, array) => {
+        const lowerName = skin.name.toLowerCase();
 
-        setSkins(skinsData);
+        // ❌ filtrar palabras típicas de chromas (por si aparecen)
+        const looksLikeChroma =
+          lowerName.includes("chroma") ||
+          lowerName.includes("ruby") ||
+          lowerName.includes("emerald") ||
+          lowerName.includes("obsidian") ||
+          lowerName.includes("pearl") ||
+          lowerName.includes("rose quartz") ||
+          lowerName.includes("sapphire") ||
+          lowerName.includes("catseye") ||
+          lowerName.includes("amethyst") ||
+          lowerName.includes("tanzanite");
 
-        if (skinsData.length > 0) {
-          setSelectedSkin(skinsData[0].name);
-        } else {
-          setSelectedSkin("");
-        }
-      } catch (error) {
-        console.error("Error cargando skins:", error);
-        setSkins([]);
-        setSelectedSkin("");
-      } finally {
-        setSkinsLoading(false);
-      }
+        // ❌ eliminar duplicados por nombre limpio
+        const duplicated =
+          array.findIndex(
+            (item) => item.name.toLowerCase() === lowerName
+          ) !== index;
+
+        return !looksLikeChroma && !duplicated;
+      });
+
+    setSkins(skinsData);
+
+    if (skinsData.length > 0) {
+      setSelectedSkin(skinsData[0].name);
+    } else {
+      setSelectedSkin("");
     }
+  } catch (error) {
+    console.error("Error cargando skins:", error);
+    setSkins([]);
+    setSelectedSkin("");
+  } finally {
+    setSkinsLoading(false);
+  }
+}
 
     fetchChampionDetails();
   }, [selectedChampion, ddragonVersion]);
