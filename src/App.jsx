@@ -85,6 +85,41 @@ export default function App() {
       `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/en_US/champion/${selectedChampion}.json`
     );
 
+    async function cargarCampeones() {
+  const res = await fetch("http://localhost:3000/campeones");
+  const campeones = await res.json();
+
+  const select = document.getElementById("campeonSelect");
+
+  campeones.forEach(c => {
+    const option = document.createElement("option");
+    option.value = c.id_campeon;
+    option.textContent = c.nombre;
+    select.appendChild(option);
+  });
+}
+
+cargarCampeones();
+
+    async function cargarSkins(id_campeon) {
+  const res = await fetch(`http://localhost:3000/skins/${id_campeon}`);
+  const skins = await res.json();
+
+  const contenedor = document.getElementById("skinsContainer");
+  contenedor.innerHTML = "";
+
+  skins.forEach(skin => {
+    const div = document.createElement("div");
+
+    div.innerHTML = `
+      <img src="${skin.imagen_url}" width="120">
+      <p>${skin.nombre}</p>
+    `;
+
+    contenedor.appendChild(div);
+  });
+}
+
     const data = await res.json();
     const champData = data.data[selectedChampion];
 
