@@ -118,6 +118,11 @@ cargarCampeones();
 
     contenedor.appendChild(div);
   });
+
+  document.getElementById("campeonSelect").addEventListener("change", (e) => {
+  const id = e.target.value;
+  cargarSkins(id);
+});
 }
 
     const data = await res.json();
